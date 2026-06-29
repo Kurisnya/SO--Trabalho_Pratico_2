@@ -98,8 +98,16 @@ int handle_page_fault(int page)
 
     // Atualiza o mapeamento indicando qual página está residindo neste quadro físico
     frame_to_page[frame] = page;
+    page_table_update(page, frame);
 
-    return frame;
+-----------------------------------------------------------------------------
+OU SEJA: o final do handle_page_fault ficará assim:
+
+[RESTO DO CÓDIGO...]
+
+page_table_update(page, frame);
+
+return frame;
 }
 
 int select_victim_page(void)
