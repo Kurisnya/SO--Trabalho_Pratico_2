@@ -42,30 +42,24 @@ static int find_free_frame(void)
 
 int handle_page_fault(int page)
 {
-    /*
-     * MODIFICADO (Passo 2):
-     * 1. Procurar quadro livre.
-     * 2. Se não houver quadro livre, selecionar página vítima (Será completado no Passo 4).
-     * 5. Ler a página correta do BACKING_STORE.bin.
-     * 6. Atualizar frame_to_page.
-     */
-
     int frame = find_free_frame();
 
     if (frame == -1) {
-        // Lógica de substituição que faremos no Passo 4.
-        // Por enquanto, apenas um placeholder para evitar travamentos nos primeiros testes.
+        /*
+         * MODIFICADO (Passo 4):
+         * Seleciona a página vítima usando o algoritmo de Aging.
+         * Encontra em qual quadro ela estava e limpa as estruturas de mapeamento.
+         */
         int victim_page = select_victim_page();
 
-        /*
-         * TODO (Passo 4):
-         * Obter o quadro da página vítima.
-         * Invalidar tabela e TLB.
-         */
+        // Obtém o quadro físico associado à página vítima antes de invalidá-la
+        frame = page_table_get_frame(victim_page);
 
-        (void) victim_page;
+        // Invalida a página vítima na tabela de páginas para que futuros acessos gerem Page Fault
+        page_table_invalidate(victim_page);
 
-        frame = 0; // Temporário até implementarmos o Aging
+        // Remove a página vítima do TLB (caso ela esteja lá dentro)
+        tlb_invalidate(victim_page);
     }
 
     if (backing == NULL) {
@@ -73,12 +67,6 @@ int handle_page_fault(int page)
         exit(1);
     }
 
-    /*
-     * MODIFICADO (Passo 2):
-     * Fazer fseek para page * FRAME_SIZE (ou PAGE_SIZE).
-     * Fazer fread de FRAME_SIZE bytes para physical_memory[frame].
-     */
-    
     // Calcula a posição do byte inicial da página no arquivo binário
     long offset_arquivo = page * FRAME_SIZE;
 
@@ -99,6 +87,7 @@ int handle_page_fault(int page)
     // Atualiza o mapeamento indicando qual página está residindo neste quadro físico
     frame_to_page[frame] = page;
 
+    // Atualiza a tabela de páginas mapeando o novo par (página, quadro)
     page_table_update(page, frame);
 
     return frame;
@@ -107,11 +96,32 @@ int handle_page_fault(int page)
 int select_victim_page(void)
 {
     /*
-     * TODO (Passo 4):
-     * Selecionar a página válida com menor aging_counter.
+     * MODIFICADO (Passo 4):
+     * Selecionar a página VÁLIDA com menor aging_counter.
      */
+    int victim = -1;
+    unsigned char min_aging = 0xFF; // Inicializa com o maior valor possível para fins de comparação
 
-    return 0;
+    for (int i = 0; i < PAGE_TABLE_SIZE; i++) {
+        // Só avalia páginas que estão atualmente mapeadas na memória física
+        if (page_table_is_valid(i)) {
+            unsigned char current_aging = page_table_get_aging_counter(i);
+            
+            // Busca pelo menor valor numérico do contador
+            if (current_aging < min_aging) {
+                min_aging = current_aging;
+                victim = i;
+            }
+        }
+    }
+
+    // Caso de salvaguarda (se nenhuma página for válida por algum erro de estado, o que não deve ocorrer)
+    if (victim == -1) {
+        fprintf(stderr, "Erro fatal: Nenhuma pagina valida encontrada para substituicao.\n");
+        exit(1);
+    }
+
+    return victim;
 }
 
 signed char read_memory(int frame, int offset)
