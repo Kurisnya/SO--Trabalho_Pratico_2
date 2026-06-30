@@ -59,7 +59,7 @@ int handle_page_fault(int page)
         page_table_invalidate(victim_page);
 
         // Remove a página vítima do TLB (caso ela esteja lá dentro)
-        tlb_invalidate(victim_page);
+        tlb_remove(victim_page);
     }
 
     if (backing == NULL) {
