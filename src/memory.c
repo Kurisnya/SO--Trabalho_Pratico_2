@@ -9,10 +9,11 @@
 static signed char physical_memory[NUM_FRAMES][FRAME_SIZE];
 
 /*
- * Indica qual página está carregada em cada quadro.
- * Valor -1 indica quadro livre.
+ * Mapeia cada quadro físico para a página atualmente carregada.
+ * O valor -1 indicaum  quadro livre.
  */
-static int frame_to_page[NUM_FRAMES];
+static int frame_to_page[NUM_FRAMES]; 
+
 
 static FILE *backing = NULL;
 
@@ -67,16 +68,16 @@ int handle_page_fault(int page)
         exit(1);
     }
 
-    // Calcula a posição do byte inicial da página no arquivo binário
+    // Calcula o deslocamento inicial da página no BACKING_STORE.
     long offset_arquivo = page * FRAME_SIZE;
 
-    // Reposiciona o ponteiro de leitura do arquivo BACKING_STORE
+    // Posiciona o ponteiro no início da página solicitada.
     if (fseek(backing, offset_arquivo, SEEK_SET) != 0) {
         fprintf(stderr, "Erro: fseek falhou para a pagina %d\n", page);
         exit(1);
     }
 
-    // Lê os 256 bytes da página diretamente para o quadro (frame) correspondente na memória física
+    // Lê os 256 bytes (Carrega o conteúdo) da página diretamente para o quadro (frame) correspondente na memória física
     size_t bytes_lidos = fread(physical_memory[frame], sizeof(signed char), FRAME_SIZE, backing);
     
     if (bytes_lidos != FRAME_SIZE) {
@@ -84,7 +85,7 @@ int handle_page_fault(int page)
         exit(1);
     }
 
-    // Atualiza o mapeamento indicando qual página está residindo neste quadro físico
+    // Registra qual página está armazenada no quadro recém-carregado.
     frame_to_page[frame] = page;
 
     // Atualiza a tabela de páginas mapeando o novo par (página, quadro)
